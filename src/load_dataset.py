@@ -20,7 +20,7 @@ def load_dataset(enc, path, combine, encoding=None):
         paths = glob.glob(path)
 
     token_chunks = []
-    raw_text = ''
+    raw_text = []
     for path in tqdm.tqdm(paths):
         if path.endswith('.npz'):
             # Pre-encoded
@@ -30,17 +30,58 @@ def load_dataset(enc, path, combine, encoding=None):
         else:
             # Plain text
             with open(path, 'r', encoding=encoding) as fp:
-                raw_text += fp.read()
-            if len(raw_text) >= combine:
-                tokens = np.stack(enc.encode(raw_text))
-                token_chunks.append(tokens)
-                raw_text = ''
+                for line in fp:
+                    line = line.strip().split('\t')
+                    raw_text.append(' '.join(line[1:]) + '</s>')
+            raw_text_length = sum(len(s) for s in raw_text) 
+            if raw_text_length >= combine:
+                for sentence in raw_text:
+                    tokens = np.stack(enc.encode(sentence))
+                    token_chunks.append(tokens)
+                raw_text = []
             else:
-                raw_text += '<|endoftext|>'
+                raw_text += ['<|endoftext|>']
     if raw_text:
         tokens = np.stack(enc.encode(raw_text))
         token_chunks.append(tokens)
     return token_chunks
+
+# def load_dataset(enc, path, combine, encoding=None):
+#     paths = []
+#     if os.path.isfile(path):
+#         # Simple file
+#         paths.append(path)
+#     elif os.path.isdir(path):
+#         # Directory
+#         for (dirpath, _, fnames) in os.walk(path):
+#             for fname in fnames:
+#                 paths.append(os.path.join(dirpath, fname))
+#     else:
+#         # Assume glob
+#         paths = glob.glob(path)
+
+#     token_chunks = []
+#     raw_text = ''
+#     for path in tqdm.tqdm(paths):
+#         if path.endswith('.npz'):
+#             # Pre-encoded
+#             with np.load(path) as npz:
+#                 for item in npz.files:
+#                     token_chunks.append(npz[item])
+#         else:
+#             # Plain text
+#             with open(path, 'r', encoding=encoding) as fp:
+#                 raw_text += fp.read()
+#             if len(raw_text) >= combine:
+#                 tokens = np.stack(enc.encode(raw_text))
+#                 token_chunks.append(tokens)
+#                 raw_text = ''
+#             else:
+#                 raw_text += '<|endoftext|>'
+#     if raw_text:
+#         tokens = np.stack(enc.encode(raw_text))
+#         token_chunks.append(tokens)
+#     return token_chunks
 
 
 def binary_search(f, lo, hi):
